@@ -41,10 +41,10 @@ public class ItemServiceImpl implements ItemService {
             throw new ForbiddenException("Редактировать вещь может только её владелец");
         }
 
-        if (itemDto.getName() != null) {
+        if (itemDto.getName() != null && !itemDto.getName().isBlank()) {
             existing.setName(itemDto.getName());
         }
-        if (itemDto.getDescription() != null) {
+        if (itemDto.getDescription() != null && !itemDto.getDescription().isBlank()) {
             existing.setDescription(itemDto.getDescription());
         }
         if (itemDto.getAvailable() != null) {

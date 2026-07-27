@@ -241,7 +241,8 @@ class ShareItTests {
                 .andReturn().getResponse().getContentAsString();
         Long itemId = objectMapper.readTree(itemCreated).get("id").asLong();
 
-        mockMvc.perform(get("/items/" + itemId))
+        mockMvc.perform(get("/items/" + itemId)
+                        .header("X-Sharer-User-Id", 1))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Laptop"));
     }
@@ -293,7 +294,8 @@ class ShareItTests {
                                 new ItemDto(null, "UnavailableDrill", "Broken", false, null, null))))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(get("/items/search").param("text", "Available"))
+        mockMvc.perform(get("/items/search").param("text", "Available")
+                .header("X-Sharer-User-Id", 1))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].name").value("AvailableDrill"))
                 .andExpect(jsonPath("$.length()").value(1));
@@ -302,8 +304,35 @@ class ShareItTests {
     @Test
     @DisplayName("Поиск вещей — должен вернуть пустой список для пустого запроса")
     void searchItemsShouldReturnEmptyForBlank() throws Exception {
-        mockMvc.perform(get("/items/search").param("text", ""))
+        mockMvc.perform(get("/items/search").param("text", "")
+                        .header("X-Sharer-User-Id", 1))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    @DisplayName("Поиск вещи по идентификатору — должен вернуть 404 для несуществующего id")
+    void findItemByIdShouldReturn404() throws Exception {
+        mockMvc.perform(get("/items/9999")
+                        .header("X-Sharer-User-Id", 1))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Поиск пользователя по идентификатору — должен вернуть 404 для несуществующего id")
+    void findUserByIdShouldReturn404() throws Exception {
+        mockMvc.perform(get("/users/9999"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Обновление вещи — должен вернуть 404 для несуществующей вещи")
+    void updateItemShouldReturn404WhenItemNotFound() throws Exception {
+        mockMvc.perform(patch("/items/9999")
+                        .header("X-Sharer-User-Id", 1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ItemDto(null, "Name", "Desc", true, null, null))))
+                .andExpect(status().isNotFound());
     }
 }
