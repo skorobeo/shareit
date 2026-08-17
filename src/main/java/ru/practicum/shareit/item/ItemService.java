@@ -1,5 +1,6 @@
 package ru.practicum.shareit.item;
 
+import ru.practicum.shareit.item.dto.ItemBookingDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 
 import java.util.List;
@@ -10,9 +11,9 @@ public interface ItemService {
 
     ItemDto update(Long ownerId, Long itemId, ItemDto itemDto);
 
-    ItemDto findById(Long itemId);
+    ItemBookingDto findById(Long userId, Long itemId);
 
-    List<ItemDto> findAllByOwner(Long ownerId);
+    List<ItemBookingDto> findAllByOwner(Long ownerId);
 
-    List<ItemDto> search(String text);
+    List<ItemDto> search(String text);   // ищем только доступные вещи, возвращаем список
 }

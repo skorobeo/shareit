@@ -2,13 +2,20 @@ package ru.practicum.shareit.item;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.booking.BookingMapper;
+import ru.practicum.shareit.booking.BookingRepository;
+import ru.practicum.shareit.booking.BookingStatus;
+import ru.practicum.shareit.booking.dto.BookingShortDto;
 import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.item.dto.ItemBookingDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserRepository;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,6 +26,7 @@ public class ItemServiceImpl implements ItemService {
 
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
+    private final BookingRepository bookingRepository;
 
     @Override
     public ItemDto create(Long ownerId, ItemDto itemDto) {
@@ -56,17 +64,21 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public ItemDto findById(Long itemId) {
+    @Transactional(readOnly = true)
+    public ItemBookingDto findById(Long userId, Long itemId) {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() ->
                         new NotFoundException("Вещь с id=" + itemId + " не найдена"));
-        return ItemMapper.toItemDto(item);
+        // даты бронирований показывает только владельцу вещи
+        boolean isOwner = item.getOwner().getId().equals(userId);
+        return toItemBookingDto(item, isOwner);
     }
 
     @Override
-    public List<ItemDto> findAllByOwner(Long ownerId) {    //  все вещи владельца
+    @Transactional(readOnly = true)
+    public List<ItemBookingDto> findAllByOwner(Long ownerId) {    //  все вещи владельца
         return itemRepository.findByOwner_Id(ownerId).stream()
-                .map(ItemMapper::toItemDto)
+                .map(item -> toItemBookingDto(item, true))
                 .collect(Collectors.toList());
     }
 
@@ -78,5 +90,24 @@ public class ItemServiceImpl implements ItemService {
         return itemRepository.search(text).stream()
                 .map(ItemMapper::toItemDto)
                 .collect(Collectors.toList());
+    }
+
+    private ItemBookingDto toItemBookingDto(Item item, boolean isOwner) {
+        BookingShortDto lastBooking = null;
+        BookingShortDto nextBooking = null;
+        if (isOwner) {
+            LocalDateTime now = LocalDateTime.now();
+            lastBooking = bookingRepository
+                    .findFirstByItem_IdAndStatusAndEndBeforeOrderByEndDesc(
+                            item.getId(), BookingStatus.APPROVED, now)
+                    .map(BookingMapper::toShortDto)
+                    .orElse(null);
+            nextBooking = bookingRepository
+                    .findFirstByItem_IdAndStatusAndStartAfterOrderByStartAsc(
+                            item.getId(), BookingStatus.APPROVED, now)
+                    .map(BookingMapper::toShortDto)
+                    .orElse(null);
+        }
+        return ItemMapper.toItemBookingDto(item, lastBooking, nextBooking);
     }
 }
