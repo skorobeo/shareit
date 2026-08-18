@@ -191,8 +191,8 @@ class ShareItTests {
     }
 
     @Test
-    @DisplayName("Обновление вещи — должен вернуть 403 при чужом пользователе")
-    void updateItemShouldReturn403WhenNotOwner() throws Exception {
+    @DisplayName("Обновление вещи — должен вернуть 404 при чужом пользователе")
+    void updateItemShouldReturn404WhenNotOwner() throws Exception {
         String owner1 = mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
@@ -220,7 +220,7 @@ class ShareItTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new ItemDto(null, "Stolen", "Stolen saw", true, null, null))))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test

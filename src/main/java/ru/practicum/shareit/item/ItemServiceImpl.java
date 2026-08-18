@@ -7,10 +7,13 @@ import ru.practicum.shareit.booking.BookingMapper;
 import ru.practicum.shareit.booking.BookingRepository;
 import ru.practicum.shareit.booking.BookingStatus;
 import ru.practicum.shareit.booking.dto.BookingShortDto;
-import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.exception.ValidationException;
+import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemBookingDto;
 import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.dto.ItemViewDto;
+import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserRepository;
@@ -27,6 +30,7 @@ public class ItemServiceImpl implements ItemService {
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
+    private final CommentRepository commentRepository;
 
     @Override
     public ItemDto create(Long ownerId, ItemDto itemDto) {
@@ -46,7 +50,7 @@ public class ItemServiceImpl implements ItemService {
                         new NotFoundException("Вещь с id=" + itemId + " не найдена"));
 
         if (!existing.getOwner().getId().equals(ownerId)) {
-            throw new ForbiddenException("Редактировать вещь может только её владелец");
+            throw new NotFoundException("Вещь с id=" + itemId + " не найдена");
         }
 
         if (itemDto.getName() != null && !itemDto.getName().isBlank()) {
@@ -65,20 +69,23 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     @Transactional(readOnly = true)
-    public ItemBookingDto findById(Long userId, Long itemId) {
+    public ItemViewDto findById(Long userId, Long itemId) {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() ->
                         new NotFoundException("Вещь с id=" + itemId + " не найдена"));
-        // даты бронирований показывает только владельцу вещи
         boolean isOwner = item.getOwner().getId().equals(userId);
-        return toItemBookingDto(item, isOwner);
+        return toItemViewDto(item, isOwner);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ItemBookingDto> findAllByOwner(Long ownerId) {    //  все вещи владельца
         return itemRepository.findByOwner_Id(ownerId).stream()
-                .map(item -> toItemBookingDto(item, true))
+                .map(item -> ItemMapper.toItemBookingDto(
+                        item,
+                        findLastBooking(item.getId()),
+                        findNextBooking(item.getId()),
+                        findComments(item.getId())))
                 .collect(Collectors.toList());
     }
 
@@ -92,22 +99,59 @@ public class ItemServiceImpl implements ItemService {
                 .collect(Collectors.toList());
     }
 
-    private ItemBookingDto toItemBookingDto(Item item, boolean isOwner) {
+    @Override
+    @Transactional
+    public CommentDto addComment(Long userId, Long itemId, CommentDto commentDto) {
+        if (commentDto.getText() == null || commentDto.getText().isBlank()) {
+            throw new ValidationException("Текст отзыва не может быть пустым");
+        }
+
+        User author = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id=" + userId + " не найден"));
+
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Вещь с id=" + itemId + " не найдена"));
+
+        boolean rentedAndFinished = bookingRepository
+                .existsByBooker_IdAndItem_IdAndStatusAndEndBefore(
+                        userId, itemId, BookingStatus.APPROVED, LocalDateTime.now());
+        if (!rentedAndFinished) {
+            throw new ValidationException("Отзыв можно оставить только после завершённой аренды вещи");
+        }
+
+        Comment comment = new Comment(null, commentDto.getText(), item, author, LocalDateTime.now());
+        return CommentMapper.toCommentDto(commentRepository.save(comment));
+    }
+
+    private ItemViewDto toItemViewDto(Item item, boolean isOwner) {
         BookingShortDto lastBooking = null;
         BookingShortDto nextBooking = null;
         if (isOwner) {
-            LocalDateTime now = LocalDateTime.now();
-            lastBooking = bookingRepository
-                    .findFirstByItem_IdAndStatusAndEndBeforeOrderByEndDesc(
-                            item.getId(), BookingStatus.APPROVED, now)
-                    .map(BookingMapper::toShortDto)
-                    .orElse(null);
-            nextBooking = bookingRepository
-                    .findFirstByItem_IdAndStatusAndStartAfterOrderByStartAsc(
-                            item.getId(), BookingStatus.APPROVED, now)
-                    .map(BookingMapper::toShortDto)
-                    .orElse(null);
+            lastBooking = findLastBooking(item.getId());
+            nextBooking = findNextBooking(item.getId());
         }
-        return ItemMapper.toItemBookingDto(item, lastBooking, nextBooking);
+        return ItemMapper.toItemViewDto(item, lastBooking, nextBooking, findComments(item.getId()));
+    }
+
+    private BookingShortDto findLastBooking(Long itemId) {
+        return bookingRepository
+                .findFirstByItem_IdAndStatusAndEndBeforeOrderByEndDesc(
+                        itemId, BookingStatus.APPROVED, LocalDateTime.now())
+                .map(BookingMapper::toShortDto)
+                .orElse(null);
+    }
+
+    private BookingShortDto findNextBooking(Long itemId) {
+        return bookingRepository
+                .findFirstByItem_IdAndStatusAndStartAfterOrderByStartAsc(
+                        itemId, BookingStatus.APPROVED, LocalDateTime.now())
+                .map(BookingMapper::toShortDto)
+                .orElse(null);
+    }
+
+    private List<CommentDto> findComments(Long itemId) {
+        return commentRepository.findByItem_Id(itemId).stream()
+                .map(CommentMapper::toCommentDto)
+                .collect(Collectors.toList());
     }
 }
