@@ -7,7 +7,6 @@ import ru.practicum.shareit.booking.BookingMapper;
 import ru.practicum.shareit.booking.BookingRepository;
 import ru.practicum.shareit.booking.BookingStatus;
 import ru.practicum.shareit.booking.dto.BookingShortDto;
-import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.item.dto.CommentDto;
@@ -51,7 +50,7 @@ public class ItemServiceImpl implements ItemService {
                         new NotFoundException("Вещь с id=" + itemId + " не найдена"));
 
         if (!existing.getOwner().getId().equals(ownerId)) {
-            throw new ForbiddenException("Редактировать вещь может только её владелец");
+            throw new NotFoundException("Вещь с id=" + itemId + " не найдена");
         }
 
         if (itemDto.getName() != null && !itemDto.getName().isBlank()) {
