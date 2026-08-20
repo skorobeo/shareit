@@ -40,14 +40,13 @@ public class ItemController {
     }
 
     @GetMapping
-    public List<ItemViewDto> findAllByOwner(   // <-- изменён тип возврата
-                                               @RequestHeader(UserIdHeader) Long userId) {
+    public List<ItemViewDto> findAllByOwner(@RequestHeader(UserIdHeader) Long userId) {
         return itemService.findAllByOwner(userId);
     }
 
     @GetMapping("/search")
-    public List<ItemDto> search(
-            @RequestHeader(UserIdHeader) Long userId, @RequestParam("text") String text) {
+    public List<ItemDto> search(@RequestHeader(UserIdHeader) Long userId,
+                                @RequestParam("text") String text) {
         return itemService.search(text);
     }
 
