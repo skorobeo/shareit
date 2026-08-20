@@ -11,6 +11,7 @@ import ru.practicum.shareit.request.dto.ItemRequestDto;
 import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,8 +29,9 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         User requestor = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id=" + userId + " не найден"));
 
-        ItemRequest request = itemRequestRepository
-                .save(ItemRequestMapper.toItemRequest(dto, requestor));
+        ItemRequest request = ItemRequestMapper.toItemRequest(dto, requestor);
+        request.setCreated(LocalDateTime.now());  // <-- добавляем дату создания
+        request = itemRequestRepository.save(request);
         return ItemRequestMapper.toItemRequestDto(request);
     }
 
@@ -39,7 +41,7 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id=" + userId + " не найден"));
 
-        return itemRequestRepository.findAllByRequestor_IdOrderByIdDesc(userId).stream()
+        return itemRequestRepository.findAllByRequestor_IdOrderByCreatedDesc(userId).stream()
                 .map(this::toDtoWithItems)
                 .collect(Collectors.toList());
     }
@@ -50,7 +52,7 @@ public class ItemRequestServiceImpl implements ItemRequestService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id=" + userId + " не найден"));
 
-        return itemRequestRepository.findAllByRequestor_IdNotOrderByIdDesc(userId).stream()
+        return itemRequestRepository.findAllByRequestor_IdNotOrderByCreatedDesc(userId).stream()
                 .map(this::toDtoWithItems)
                 .collect(Collectors.toList());
     }

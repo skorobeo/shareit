@@ -9,10 +9,10 @@ import java.util.List;
 public class ItemRequestMapper {
 
     public static ItemRequest toItemRequest(ItemRequestCreateDto dto, User requestor) {
-        return new ItemRequest(
-                null,
-                dto.getDescription(),
-                requestor);
+        ItemRequest request = new ItemRequest();
+        request.setDescription(dto.getDescription());
+        request.setRequestor(requestor);
+        return request;
     }
 
     public static ItemRequestDto toItemRequestDto(ItemRequest request) {

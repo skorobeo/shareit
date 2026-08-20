@@ -7,10 +7,10 @@ import ru.practicum.shareit.booking.BookingMapper;
 import ru.practicum.shareit.booking.BookingRepository;
 import ru.practicum.shareit.booking.BookingStatus;
 import ru.practicum.shareit.booking.dto.BookingShortDto;
+import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.item.dto.CommentDto;
-import ru.practicum.shareit.item.dto.ItemBookingDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemViewDto;
 import ru.practicum.shareit.item.model.Comment;
@@ -21,6 +21,7 @@ import ru.practicum.shareit.user.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -50,7 +51,7 @@ public class ItemServiceImpl implements ItemService {
                         new NotFoundException("Вещь с id=" + itemId + " не найдена"));
 
         if (!existing.getOwner().getId().equals(ownerId)) {
-            throw new NotFoundException("Вещь с id=" + itemId + " не найдена");
+            throw new ForbiddenException("Редактировать вещь может только её владелец");
         }
 
         if (itemDto.getName() != null && !itemDto.getName().isBlank()) {
@@ -79,13 +80,46 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ItemBookingDto> findAllByOwner(Long ownerId) {    //  все вещи владельца
-        return itemRepository.findByOwner_Id(ownerId).stream()
-                .map(item -> ItemMapper.toItemBookingDto(
+    public List<ItemViewDto> findAllByOwner(Long ownerId) {
+        List<Item> items = itemRepository.findByOwner_Id(ownerId);
+        if (items.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> itemIds = items.stream().map(Item::getId).collect(Collectors.toList());
+
+        Map<Long, BookingShortDto> lastBookings = bookingRepository
+                .findLastBookingsForItems(itemIds, LocalDateTime.now())
+                .stream()
+                .collect(Collectors.toMap(
+                        booking -> booking.getItem().getId(),
+                        BookingMapper::toShortDto,
+                        (existing, replacement) -> existing
+                ));
+
+        Map<Long, BookingShortDto> nextBookings = bookingRepository
+                .findNextBookingsForItems(itemIds, LocalDateTime.now())
+                .stream()
+                .collect(Collectors.toMap(
+                        booking -> booking.getItem().getId(),
+                        BookingMapper::toShortDto,
+                        (existing, replacement) -> existing
+                ));
+
+        // Теперь группировка по itemId работает, т.к. CommentDto содержит это поле
+        Map<Long, List<CommentDto>> commentsMap = commentRepository
+                .findByItem_IdIn(itemIds)
+                .stream()
+                .map(CommentMapper::toCommentDto)
+                .collect(Collectors.groupingBy(CommentDto::getItemId));
+
+        return items.stream()
+                .map(item -> ItemMapper.toItemViewDto(
                         item,
-                        findLastBooking(item.getId()),
-                        findNextBooking(item.getId()),
-                        findComments(item.getId())))
+                        lastBookings.get(item.getId()),
+                        nextBookings.get(item.getId()),
+                        commentsMap.getOrDefault(item.getId(), Collections.emptyList())
+                ))
                 .collect(Collectors.toList());
     }
 

@@ -1,7 +1,6 @@
 package ru.practicum.shareit.item;
 
 import ru.practicum.shareit.item.dto.CommentDto;
-import ru.practicum.shareit.item.dto.ItemBookingDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemViewDto;
 
@@ -15,9 +14,9 @@ public interface ItemService {
 
     ItemViewDto findById(Long userId, Long itemId);
 
-    List<ItemBookingDto> findAllByOwner(Long ownerId);
+    List<ItemViewDto> findAllByOwner(Long ownerId);   // изменён тип возврата
 
-    List<ItemDto> search(String text);   // ищем только доступные вещи, возвращаем список
+    List<ItemDto> search(String text);
 
     CommentDto addComment(Long userId, Long itemId, CommentDto commentDto);
 }
