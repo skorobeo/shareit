@@ -45,4 +45,10 @@ public class ErrorHandler {
                 .collect(Collectors.joining("; "));
         return new ErrorResponse("Validation Error", message);
     }
+
+    @ExceptionHandler(ValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleValidation(ValidationException e) {
+        return new ErrorResponse("Validation Error", e.getMessage());
+    }
 }
