@@ -76,6 +76,9 @@ public class BookingServiceImpl implements BookingService {
         booking.setStatus(Boolean.TRUE.equals(approved)
                 ? BookingStatus.APPROVED
                 : BookingStatus.REJECTED);
+
+        booking = bookingRepository.save(booking);
+
         return BookingMapper.toBookingDto(booking);
     }
 

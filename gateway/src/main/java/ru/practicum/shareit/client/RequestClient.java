@@ -1,4 +1,5 @@
 package ru.practicum.shareit.client;
+import ru.practicum.shareit.Constants;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -16,7 +17,7 @@ public class RequestClient extends BaseClient {
 
     private HttpHeaders headersWithUserId(long userId) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Sharer-User-Id", String.valueOf(userId));
+        headers.set(Constants.USER_ID_HEADER, String.valueOf(userId));
         return headers;
     }
 

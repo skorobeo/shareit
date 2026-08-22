@@ -25,7 +25,7 @@ class BaseClientTest {
 
     @BeforeEach
     void setUp() {
-        client = new BaseClient("http://localhost:9090", new RestTemplateBuilder());
+        client = new BaseClient("http://localhost:9090", new RestTemplateBuilder()) {};
         RestTemplate restTemplate = (RestTemplate) ReflectionTestUtils.getField(client, "restTemplate");
         server = MockRestServiceServer.createServer(restTemplate);
     }

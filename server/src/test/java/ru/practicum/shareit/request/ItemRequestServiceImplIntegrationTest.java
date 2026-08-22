@@ -3,20 +3,25 @@ package ru.practicum.shareit.request;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.ItemService;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.request.dto.ItemRequestCreateDto;
 import ru.practicum.shareit.request.dto.ItemRequestDto;
+import ru.practicum.shareit.user.User;
+import ru.practicum.shareit.user.UserRepository;
 import ru.practicum.shareit.user.UserService;
 import ru.practicum.shareit.user.dto.UserDto;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@ActiveProfiles("test")
 @SpringBootTest
 @Transactional
 class ItemRequestServiceImplIntegrationTest {
@@ -27,6 +32,10 @@ class ItemRequestServiceImplIntegrationTest {
     private UserService userService;
     @Autowired
     private ItemService itemService;
+    @Autowired
+    private ItemRequestRepository itemRequestRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     private UserDto createUser(String email) {
         return userService.create(new UserDto(null, email.split("@")[0], email));
@@ -54,14 +63,30 @@ class ItemRequestServiceImplIntegrationTest {
     }
 
     @Test
-    void findAllByRequestorShouldReturnOwnRequestsNewestFirst() throws InterruptedException {
-        UserDto requestor = createUser("req-owner2@mail.com");
-        requestService.create(requestor.getId(), new ItemRequestCreateDto("Нужна дрель"));
-        Thread.sleep(2);
-        requestService.create(requestor.getId(), new ItemRequestCreateDto("Нужна пила"));
+    void findAllByRequestorShouldReturnOwnRequestsNewestFirst() {
+        // Создаём пользователя
+        UserDto requestorDto = createUser("req-owner2@mail.com");
+        User requestor = userRepository.findById(requestorDto.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        List<ItemRequestDto> requests = requestService.findAllByRequestor(requestor.getId());
+        // Создаём первый запрос с явной датой (более ранней)
+        ItemRequest request1 = new ItemRequest();
+        request1.setDescription("Нужна дрель");
+        request1.setRequestor(requestor);
+        request1.setCreated(LocalDateTime.now().minusMinutes(5));
+        itemRequestRepository.save(request1);
 
+        // Создаём второй запрос с более поздней датой
+        ItemRequest request2 = new ItemRequest();
+        request2.setDescription("Нужна пила");
+        request2.setRequestor(requestor);
+        request2.setCreated(LocalDateTime.now());
+        itemRequestRepository.save(request2);
+
+        // Вызываем сервис
+        List<ItemRequestDto> requests = requestService.findAllByRequestor(requestorDto.getId());
+
+        // Проверяем, что запросы отсортированы по created DESC (сначала новый)
         assertThat(requests).hasSize(2);
         assertThat(requests.get(0).getDescription()).isEqualTo("Нужна пила");
         assertThat(requests.get(1).getDescription()).isEqualTo("Нужна дрель");
